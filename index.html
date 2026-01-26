@@ -42,22 +42,48 @@
     </div>
 
     <script>
-      // SDK alias'ı oluştur (bazı örneklerde sdk olarak geçiyor, uyumluluk için)
-      const sdk = window.farcasterMiniApp || window.sdk;  // Eğer window.sdk expose ediliyorsa kullan
+      // SDK alias'ı (senin istediğin sdk.actions.ready() syntax'ı için)
+      let sdk = window.farcasterMiniApp || window.sdk;
 
-      // Erken ready çağrısı – splash'i hemen kaldır
-      if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
-        console.log("Farcaster SDK tespit edildi – sdk.actions.ready() çağrılıyor");
-        try {
-          sdk.actions.ready();  // Tam istediğin syntax: sdk.actions.ready()
-          console.log("sdk.actions.ready() başarıyla çağrıldı");
-        } catch (err) {
-          console.error("sdk.actions.ready() hatası:", err);
+      // Ready çağrısını yapan fonksiyon (retry destekli)
+      function callReady() {
+        if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
+          try {
+            sdk.actions.ready();
+            console.log("sdk.actions.ready() başarıyla çağrıldı (ilk deneme)");
+            return true;
+          } catch (err) {
+            console.error("sdk.actions.ready() hatası:", err);
+            return false;
+          }
+        } else {
+          console.warn("SDK henüz hazır değil veya sdk objesi bulunamadı");
+          return false;
         }
-      } else {
-        console.warn("Farcaster SDK veya actions.ready bulunamadı – ortam doğru mu?");
       }
 
+      // Erken çağrı (script hemen yüklendiğinde)
+      if (callReady()) {
+        console.log("Erken sdk.actions.ready() başarılı");
+      }
+
+      // Onload içinde tekrar dene (Unity loading başlamadan)
+      window.addEventListener('load', () => {
+        if (callReady()) {
+          console.log("onload sdk.actions.ready() başarılı");
+        } else {
+          // Retry: 300ms sonra bir daha dene (client gecikmesi için)
+          setTimeout(() => {
+            if (callReady()) {
+              console.log("Retry sdk.actions.ready() başarılı");
+            } else {
+              console.error("Tüm denemelerde sdk.actions.ready() başarısız – SDK yüklenmemiş olabilir");
+            }
+          }, 300);
+        }
+      });
+
+      // Kalan Unity kodları (değişmedi)
       var container = document.querySelector("#unity-container");
       var canvas = document.querySelector("#unity-canvas");
       var loadingBar = document.querySelector("#unity-loading-bar");
@@ -66,6 +92,7 @@
       var warningBanner = document.querySelector("#unity-warning");
 
       function unityShowBanner(msg, type) {
+        // ... (orijinal fonksiyon, değişmedi)
         function updateBannerVisibility() {
           warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
         }
@@ -121,37 +148,28 @@
             unityInstance.SetFullscreen(1);
           };
 
-          // Unity yüklendikten sonra kalan işlemler (context, composer)
+          // Unity yüklendikten sonra context ve composer (sdk alias'ı ile)
           if (sdk) {
-            console.log("Unity yüklendi – Farcaster context alınıyor");
-
             sdk.context()
               .then(context => {
                 console.log("Farcaster Context:", context);
                 const user = context.user || {};
-
                 unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify({
                   fid: user.fid,
                   username: user.username,
                   displayName: user.displayName,
-                  pfpUrl: user.pfp?.url || user.pfpUrl || ''
+                  pfpUrl: user.pfp?.url || ''
                 }));
               })
-              .catch(err => {
-                console.error("Context alınamadı:", err);
-              });
+              .catch(err => console.error("Context error:", err));
 
             window.openCastComposer = function(customText = "") {
-              const defaultText = "Maze Rotator'da yeni skor! #MazeRotator";
               sdk.actions.composeCast({
-                text: customText || defaultText,
+                text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
                 embeds: [{ url: window.location.href }]
-              }).catch(err => {
-                console.error("Cast composer hatası:", err);
-              });
+              }).catch(err => console.error("ComposeCast error:", err));
             };
           }
-
         }).catch((message) => {
           alert(message);
         });

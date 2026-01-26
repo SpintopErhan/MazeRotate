@@ -7,19 +7,19 @@
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
 
-    <!-- Farcaster Mini App SDK -->
+    <!-- Farcaster Mini App SDK – doğru CDN yolu -->
     <script src="https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/dist/index.min.js"></script>
 
-    <!-- Opsiyonel: Önizleme meta tag -->
+    <!-- Opsiyonel: Önizleme için meta tag -->
     <meta property="fc:frame" content='{
       "version": "next",
-      "imageUrl": "https://maze-rotate.vercel.app/preview.png",
+      "imageUrl": "https://senin-vercel-url.vercel.app/preview.png",
       "button": {
         "title": "Maze Rotator Oyna",
         "action": {
           "type": "launch_miniapp",
           "name": "Maze Rotator",
-          "url": "https://maze-rotate.vercel.app"
+          "url": "https://senin-vercel-url.vercel.app"
         }
       }
     }' />
@@ -42,44 +42,41 @@
     </div>
 
     <script>
-      // SDK alias'ı (senin istediğin sdk.actions.ready() syntax'ı için)
-      let sdk = window.farcasterMiniApp || window.sdk;
-
-      // Ready çağrısını yapan fonksiyon (retry destekli)
-      function callReady() {
-        if (sdk && sdk.actions && typeof sdk.actions.ready === 'function') {
+      // Ready çağrısını yapan yardımcı fonksiyon
+      function tryCallReady() {
+        if (window.miniapp && window.miniapp.sdk && typeof window.miniapp.sdk.actions.ready === 'function') {
           try {
-            sdk.actions.ready();
-            console.log("sdk.actions.ready() başarıyla çağrıldı (ilk deneme)");
+            window.miniapp.sdk.actions.ready();
+            console.log("miniapp.sdk.actions.ready() başarıyla çağrıldı");
             return true;
           } catch (err) {
-            console.error("sdk.actions.ready() hatası:", err);
+            console.error("miniapp.sdk.actions.ready() hatası:", err);
             return false;
           }
         } else {
-          console.warn("SDK henüz hazır değil veya sdk objesi bulunamadı");
+          console.warn("miniapp.sdk henüz hazır değil (window.miniapp veya sdk yok)");
           return false;
         }
       }
 
-      // Erken çağrı (script hemen yüklendiğinde)
-      if (callReady()) {
-        console.log("Erken sdk.actions.ready() başarılı");
+      // 1. En erken mümkün çağrı (script hemen yüklendiğinde)
+      if (tryCallReady()) {
+        console.log("Erken çağrı başarılı");
       }
 
-      // Onload içinde tekrar dene (Unity loading başlamadan)
+      // 2. window.onload içinde tekrar dene
       window.addEventListener('load', () => {
-        if (callReady()) {
-          console.log("onload sdk.actions.ready() başarılı");
+        if (tryCallReady()) {
+          console.log("onload çağrısı başarılı");
         } else {
-          // Retry: 300ms sonra bir daha dene (client gecikmesi için)
+          // 3. Ekstra retry: 500ms sonra bir daha dene (CDN gecikmesi için)
           setTimeout(() => {
-            if (callReady()) {
-              console.log("Retry sdk.actions.ready() başarılı");
+            if (tryCallReady()) {
+              console.log("500ms retry başarılı – splash kalkmalı");
             } else {
-              console.error("Tüm denemelerde sdk.actions.ready() başarısız – SDK yüklenmemiş olabilir");
+              console.error("Tüm denemelerde miniapp.sdk.actions.ready() başarısız – SDK yüklenmedi veya obje yanlış");
             }
-          }, 300);
+          }, 500);
         }
       });
 
@@ -92,7 +89,6 @@
       var warningBanner = document.querySelector("#unity-warning");
 
       function unityShowBanner(msg, type) {
-        // ... (orijinal fonksiyon, değişmedi)
         function updateBannerVisibility() {
           warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
         }
@@ -148,9 +144,11 @@
             unityInstance.SetFullscreen(1);
           };
 
-          // Unity yüklendikten sonra context ve composer (sdk alias'ı ile)
-          if (sdk) {
-            sdk.context()
+          // Unity yüklendikten sonra context ve composer
+          if (window.miniapp && window.miniapp.sdk) {
+            console.log("Unity yüklendi – Farcaster context alınıyor");
+
+            window.miniapp.sdk.context()
               .then(context => {
                 console.log("Farcaster Context:", context);
                 const user = context.user || {};
@@ -164,7 +162,7 @@
               .catch(err => console.error("Context error:", err));
 
             window.openCastComposer = function(customText = "") {
-              sdk.actions.composeCast({
+              window.miniapp.sdk.actions.composeCast({
                 text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
                 embeds: [{ url: window.location.href }]
               }).catch(err => console.error("ComposeCast error:", err));

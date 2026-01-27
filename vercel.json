@@ -5,5 +5,16 @@
       "destination": "https://api.farcaster.xyz/miniapps/hosted-manifest/019bf9ab-2594-38f7-93b8-588bb094a42d",
       "permanent": false
     }
+  ],
+  "headers": [
+    {
+      "source": "/Build/(.*).unityweb",
+      "headers": [
+        {
+          "key": "Content-Encoding",
+          "value": "br"
+        }
+      ]
+    }
   ]
 }

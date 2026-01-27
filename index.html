@@ -10,7 +10,7 @@
     <!-- Güncellenmiş viewport meta tag – mobil ve Farcaster WebView için optimize -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
-    <!-- Tam ekran / responsive canvas için CSS (değişmedi) -->
+    <!-- Tam ekran / responsive canvas için CSS -->
     <style>
       html, body {
         margin: 0;
@@ -141,8 +141,7 @@
             unityInstance.SetFullscreen(1);
           };
 
-          // ESM module ile Farcaster SDK (resmi dokümandan uyarlandı)
-          // Bu script type="module" olduğu için ayrı bir <script type="module"> tag'i içinde
+          // Farcaster SDK ve context (ESM module ile, Moodmap mantığı)
         }).catch((message) => {
           alert(message);
         });
@@ -150,22 +149,26 @@
       document.body.appendChild(script);
     </script>
 
-    <!-- Farcaster SDK ve context çağrısı – ESM module ile -->
+    <!-- Farcaster SDK – ESM module ile (resmi doküman + Moodmap uyarlaması) -->
     <script type="module">
       import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk'
 
-      // Ready çağrısı
-      sdk.actions.ready()
-        .then(() => console.log("sdk.actions.ready() BAŞARILI (ESM)"))
-        .catch(err => console.error("ready() HATASI (ESM):", err));
+      // SDK hazırlandığında çalıştır
+      (async () => {
+        try {
+          console.log("[FarcasterSDK] Initializing sdk.actions.ready()...");
+          await sdk.actions.ready({
+            disableNativeGestures: true  // Moodmap'teki gibi native gesture disable
+          });
+          console.log("[FarcasterSDK] ready() BAŞARILI");
 
-      // Context çekme + log + Unity'ye gönderme
-      sdk.context()
-        .then(context => {
-          console.log("Farcaster Context ÇEKİLDİ (ESM):", context);
+          console.log("[FarcasterSDK] Fetching context...");
+          const context = await sdk.context;
 
-          const user = context.user || {};
-          console.log("Kullanıcı Bilgileri (ESM):", {
+          console.log("Farcaster Context ÇEKİLDİ:", context);
+
+          const user = context?.user || {};
+          console.log("Kullanıcı Bilgileri:", {
             fid: user.fid,
             username: user.username,
             displayName: user.displayName,
@@ -173,30 +176,33 @@
             fullUserObject: user
           });
 
+          // Bilgiler varsa Unity'ye gönder
           if (user.fid > 0 && user.username) {
-            unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify({
-              fid: user.fid,
-              username: user.username,
-              displayName: user.displayName,
-              pfpUrl: user.pfp?.url || ''
-            }));
-            console.log("SendMessage BAŞARILI (ESM) – gerçek bilgiler gönderildi");
+            if (unityInstance) {
+              unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify({
+                fid: user.fid,
+                username: user.username,
+                displayName: user.displayName,
+                pfpUrl: user.pfp?.url || ''
+              }));
+              console.log("SendMessage BAŞARILI – gerçek bilgiler gönderildi");
+            }
           } else {
-            console.log("Kullanıcı bilgileri eksik – Unity'ye gönderilmiyor (misafir modu)");
+            console.log("Kullanıcı bilgileri eksik – Unity'ye hiçbir şey gönderilmiyor (misafir modu)");
           }
-        })
-        .catch(err => {
-          console.error("Farcaster Context HATASI (ESM):", err.message || err);
+        } catch (err) {
+          console.error("[FarcasterSDK] Initialization or context error:", err);
           console.log("Context çekilemedi – misafir modu kalır");
-        });
+        }
 
-      // Cast composer'ı ESM ile tanımla
-      window.openCastComposer = function(customText = "") {
-        sdk.actions.composeCast({
-          text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
-          embeds: [{ url: window.location.href }]
-        }).catch(err => console.error("ComposeCast error (ESM):", err));
-      };
+        // Cast composer'ı tanımla
+        window.openCastComposer = function(customText = "") {
+          sdk.actions.composeCast({
+            text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
+            embeds: [{ url: window.location.href }]
+          }).catch(err => console.error("ComposeCast error:", err));
+        };
+      })();
     </script>
   </body>
 </html>

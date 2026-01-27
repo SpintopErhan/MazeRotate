@@ -12,52 +12,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
     <style>
-      html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #000; touch-action: manipulation; }
+      html, body {
+        margin: 0; padding: 0; height: 100%; width: 100%;
+        overflow: hidden; background: #000; touch-action: manipulation;
+      }
       #unity-container { position: fixed; inset: 0; width: 100%; height: 100%; background: #000; }
       #unity-canvas { width: 100% !important; height: 100% !important; display: block; object-fit: contain; }
-      #unity-loading-bar { width: 100%; position: absolute; top: 50%; transform: translateY(-50%); z-index: 10; display: block; } /* Görünürlüğü garanti et */
-      #unity-progress-bar-empty { width: 80%; height: 20px; margin: 0 auto; background: #333; border-radius: 10px; overflow: hidden; }
-      #unity-progress-bar-full { width: 0%; height: 100%; background: #fff; transition: width 0.2s; }
+      #unity-loading-bar, #unity-footer { width: 100%; position: absolute; z-index: 10; pointer-events: none; }
+      #unity-warning { position: absolute; top: 0; left: 0; right: 0; z-index: 20; }
     </style>
+
+    <meta property="fc:frame" content='{
+      "version": "next",
+      "imageUrl": "https://maze-rotate.vercel.app/preview.png",
+      "button": {
+        "title": "Maze Rotator Oyna",
+        "action": {
+          "type": "launch_miniapp",
+          "name": "Maze Rotator",
+          "url": "https://maze-rotate.vercel.app"
+        }
+      }
+    }' />
   </head>
   <body>
-    <div id="unity-container">
+    <div id="unity-container" class="unity-desktop">
       <canvas id="unity-canvas" tabindex="-1"></canvas>
       <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
         <div id="unity-progress-bar-empty">
           <div id="unity-progress-bar-full"></div>
         </div>
       </div>
+      <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        <div id="unity-webgl-logo"></div>
+        <div id="unity-fullscreen-button"></div>
+        <div id="unity-build-title">Maze Rotator</div>
+      </div>
     </div>
 
     <script>
-      let unityInstance = null;
       let farcasterUser = { fid: 0, username: "Misafir", displayName: "Misafir", pfpUrl: "" };
+      let unityInstance = null;
+      let dataSent = false;
 
-      // 1. ADIM: Farcaster SDK'yı bağımsız başlat
+      // SDK İşlemleri
       if (window.miniapp && window.miniapp.sdk) {
+        const sdk = window.miniapp.sdk;
         try {
-          window.miniapp.sdk.actions.ready();
-          window.miniapp.sdk.context().then(context => {
-            if (context?.user) {
+          sdk.actions.ready();
+          console.log("SDK Ready.");
+
+          // Context işlemini tamamen izole ediyoruz
+          sdk.context().then(context => {
+            if (context && context.user) {
               farcasterUser = {
                 fid: context.user.fid,
                 username: context.user.username,
                 displayName: context.user.displayName,
                 pfpUrl: context.user.pfpUrl || (context.user.pfp ? context.user.pfp.url : "")
               };
+              console.log("Kullanıcı Alındı.");
             }
-            sendDataToUnity();
-          }).catch(() => {
-            console.warn("Context çekilemedi, misafir modu aktif.");
-            sendDataToUnity();
+            sendToUnity();
+          }).catch(err => {
+            console.warn("Context hatası görmezden geliniyor (Misafir modu).");
+            sendToUnity(); 
           });
         } catch (e) {
-          console.error("SDK hatası:", e);
+          sendToUnity();
         }
       }
 
-      // 2. ADIM: Unity Yükleme Yapılandırması
+      function sendToUnity() {
+        if (unityInstance && !dataSent) {
+          console.log("Veri Unity'ye iletiliyor: ", farcasterUser.username);
+          unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify(farcasterUser));
+          dataSent = true;
+        }
+      }
+
+      // Unity Loader
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/Builds.loader.js";
       var config = {
@@ -68,33 +104,32 @@
         companyName: "DefaultCompany",
         productName: "Maze Rotator",
         productVersion: "0.1",
+        showBanner: (msg, type) => { console.log(msg); },
       };
 
-      // Unity Loader Script'ini Yükle
       var script = document.createElement("script");
       script.src = loaderUrl;
       script.onload = () => {
-        // Loading barın görünür olduğundan emin ol
-        document.querySelector("#unity-loading-bar").style.display = "block";
-
         createUnityInstance(document.querySelector("#unity-canvas"), config, (progress) => {
-          document.querySelector("#unity-progress-bar-full").style.width = (100 * progress) + "%";
+          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
         }).then((instance) => {
           unityInstance = instance;
           document.querySelector("#unity-loading-bar").style.display = "none";
-          sendDataToUnity(); // Unity hazır olduğunda veriyi gönder
-        }).catch((err) => {
-          console.error("Unity Başlatma Hatası:", err);
-          alert("Oyun yüklenirken bir hata oluştu: " + err);
+          
+          // Unity yüklendiğinde ne olursa olsun veriyi gönder (Farcaster gelmemişse Misafir gider)
+          sendToUnity();
+
+          window.openCastComposer = (text) => {
+            if (window.miniapp?.sdk) {
+              window.miniapp.sdk.actions.composeCast({
+                text: text || "Maze Rotator'da yeni skor! #MazeRotator",
+                embeds: [{ url: window.location.href }]
+              });
+            }
+          };
         });
       };
       document.body.appendChild(script);
-
-      function sendDataToUnity() {
-        if (unityInstance && farcasterUser) {
-          unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify(farcasterUser));
-        }
-      }
     </script>
   </body>
 </html>

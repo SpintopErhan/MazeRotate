@@ -2,67 +2,150 @@
 <html lang="en-us">
   <head>
     <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Unity WebGL Player | Maze Rotator</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
+
+    <!-- Farcaster Mini App SDK -->
+<script type="module">
+  import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk'
+</script>
+    <!-- Güncellenmiş viewport meta tag – mobil ve Farcaster WebView için optimize -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
+
+    <!-- Tam ekran / responsive canvas için CSS -->
     <style>
-      html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #000; }
-      #unity-container { position: fixed; inset: 0; width: 100%; height: 100%; }
-      #unity-canvas { width: 100% !important; height: 100% !important; display: block; }
-      #unity-loading-bar { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; z-index: 10; }
-      #unity-progress-bar-empty { background: #333; height: 10px; border-radius: 5px; }
-      #unity-progress-bar-full { background: #fff; height: 100%; width: 0%; border-radius: 5px; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        background: #000; /* oyun teman için siyah arka plan */
+        touch-action: manipulation; /* mobil dokunma iyileştirmesi */
+      }
+      #unity-container {
+        position: fixed;
+        inset: 0; /* top/right/bottom/left: 0 */
+        width: 100%;
+        height: 100%;
+        background: #000;
+      }
+      #unity-canvas {
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
+        object-fit: contain; /* veya cover – aspect ratio bozulmasın diye contain öneririm */
+      }
+      #unity-loading-bar,
+      #unity-footer {
+        width: 100%;
+        position: absolute;
+        z-index: 10;
+        pointer-events: none; /* tıklama engellemesin */
+      }
+      #unity-warning {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 20;
+      }
     </style>
+
+    <!-- Opsiyonel: Önizleme için meta tag -->
+    <meta property="fc:frame" content='{
+      "version": "next",
+      "imageUrl": "https://maze-rotate.vercel.app/preview.png",
+      "button": {
+        "title": "Maze Rotator Oyna",
+        "action": {
+          "type": "launch_miniapp",
+          "name": "Maze Rotator",
+          "url": "https://maze-rotate.vercel.app"
+        }
+      }
+    }' />
   </head>
   <body>
-    <div id="unity-container">
-      <canvas id="unity-canvas"></canvas>
+    <div id="unity-container" class="unity-desktop">
+      <!-- Sabit width/height attribute'lerini kaldırdık – CSS yönetecek -->
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
       <div id="unity-loading-bar">
-        <div id="unity-progress-bar-empty"><div id="unity-progress-bar-full"></div></div>
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        <div id="unity-webgl-logo"></div>
+        <div id="unity-fullscreen-button"></div>
+        <div id="unity-build-title">Maze Rotator</div>
       </div>
     </div>
 
-    <script type="module">
-      import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk'
-
-      // SDK'yı global alana çıkaralım ki Unity ve diğer scriptler erişebilsin
-      window.farcasterSDK = sdk;
-      
-      async function initializeFarcaster() {
-        try {
-          // SDK Hazır Sinyali
-          await sdk.actions.ready();
-          console.log("Farcaster SDK Ready (ESM)");
-
-          const context = await sdk.context();
-          if (context?.user) {
-            window.farcasterUser = {
-              fid: context.user.fid,
-              username: context.user.username,
-              displayName: context.user.displayName,
-              pfpUrl: context.user.pfpUrl || (context.user.pfp ? context.user.pfp.url : "")
-            };
-            console.log("Kullanıcı Bilgileri Alındı:", window.farcasterUser);
+    <script>
+      // Ready çağrısını yapan yardımcı fonksiyon (değişmedi)
+      function tryCallReady() {
+        if (window.miniapp && window.miniapp.sdk && typeof window.miniapp.sdk.actions.ready === 'function') {
+          try {
+            window.miniapp.sdk.actions.ready();
+            console.log("miniapp.sdk.actions.ready() başarıyla çağrıldı");
+            return true;
+          } catch (err) {
+            console.error("miniapp.sdk.actions.ready() hatası:", err);
+            return false;
           }
-        } catch (e) {
-          console.error("Farcaster SDK Hatası:", e);
-          window.farcasterUser = { fid: 0, username: "Misafir" };
+        } else {
+          console.warn("miniapp.sdk henüz hazır değil (window.miniapp veya sdk yok)");
+          return false;
         }
-        // Veri geldiyse veya hata aldıysak Unity'ye haber ver
-        sendToUnity();
       }
 
-      initializeFarcaster();
-    </script>
+      if (tryCallReady()) {
+        console.log("Erken çağrı başarılı");
+      }
 
-    <script>
-      var unityInstance = null;
-
-      function sendToUnity() {
-        if (unityInstance && window.farcasterUser) {
-          unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify(window.farcasterUser));
+      window.addEventListener('load', () => {
+        if (tryCallReady()) {
+          console.log("onload çağrısı başarılı");
+        } else {
+          setTimeout(() => {
+            if (tryCallReady()) {
+              console.log("500ms retry başarılı – splash kalkmalı");
+            } else {
+              console.error("Tüm denemelerde miniapp.sdk.actions.ready() başarısız – SDK yüklenmedi veya obje yanlış");
+            }
+          }, 500);
         }
+      });
+
+      // Kalan Unity kodları
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
+      var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+      var warningBanner = document.querySelector("#unity-warning");
+
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
       }
 
       var buildUrl = "Build";
@@ -75,17 +158,75 @@
         companyName: "DefaultCompany",
         productName: "Maze Rotator",
         productVersion: "0.1",
+        showBanner: unityShowBanner,
       };
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        container.className = "unity-mobile";
+        canvas.className = "unity-mobile";
+      } else {
+        // Desktop'ta da CSS ile tam ekran – sabit px kaldırmıştık
+      }
+
+      loadingBar.style.display = "block";
 
       var script = document.createElement("script");
       script.src = loaderUrl;
       script.onload = () => {
-        createUnityInstance(document.querySelector("#unity-canvas"), config, (progress) => {
-          document.querySelector("#unity-progress-bar-full").style.width = (100 * progress) + "%";
-        }).then((instance) => {
-          unityInstance = instance;
-          document.querySelector("#unity-loading-bar").style.display = "none";
-          sendToUnity();
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = 100 * progress + "%";
+        }).then((unityInstance) => {
+          loadingBar.style.display = "none";
+          fullscreenButton.onclick = () => {
+            unityInstance.SetFullscreen(1);
+          };
+
+          // Unity yüklendikten sonra context ve composer (değişmedi)
+          if (window.miniapp && window.miniapp.sdk) {
+  console.log("Unity yüklendi – Farcaster context alınıyor");
+
+  window.miniapp.sdk.context()
+    .then(context => {
+      console.log("Farcaster Context ÇEKİLDİ:", context);
+
+      // Kullanıcı bilgilerini detaylı logla
+      const user = context.user || {};
+      console.log("Kullanıcı Bilgileri (SDK'dan):", {
+        fid: user.fid,
+        username: user.username,
+        displayName: user.displayName,
+        pfpUrl: user.pfp?.url || user.pfpUrl || null,
+        fullUserObject: user
+      });
+
+      // Bilgiler varsa Unity'ye gönder
+      if (user.fid > 0 && user.username) {
+        unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify({
+          fid: user.fid,
+          username: user.username,
+          displayName: user.displayName,
+          pfpUrl: user.pfp?.url || ''
+        }));
+        console.log("SendMessage BAŞARILI – gerçek kullanıcı bilgileri gönderildi");
+      } else {
+        console.log("Kullanıcı bilgileri eksik veya geçersiz – Unity'ye hiçbir şey gönderilmiyor (misafir modu)");
+      }
+    })
+    .catch(err => {
+      console.error("Farcaster Context HATASI:", err.message || err);
+      console.log("Context çekilemedi – Unity'ye bilgi gönderilmiyor (misafir modu kalır)");
+    });
+
+  // composer fonksiyonu (değişmedi)
+  window.openCastComposer = function(customText = "") {
+    window.miniapp.sdk.actions.composeCast({
+      text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
+      embeds: [{ url: window.location.href }]
+    }).catch(err => console.error("ComposeCast error:", err));
+  };
+}
+        }).catch((message) => {
+          alert(message);
         });
       };
       document.body.appendChild(script);

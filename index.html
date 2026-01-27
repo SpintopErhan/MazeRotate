@@ -153,20 +153,22 @@
    <script type="module">
   import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk@0.2.2'
 
-  // Global unityInstance'ı bekleyen fonksiyon
-  async function waitForUnityInstance(timeout = 30000) {
+  // unityInstance'ı bekleyen fonksiyon (timeout 60 saniyeye çıkardık)
+  async function waitForUnityInstance(timeout = 60000) {
     return new Promise((resolve, reject) => {
       const start = Date.now();
       const interval = setInterval(() => {
         if (window.unityInstance) {
           clearInterval(interval);
+          console.log("Unity instance BULUNDU:", window.unityInstance);
           resolve(window.unityInstance);
         }
         if (Date.now() - start > timeout) {
           clearInterval(interval);
+          console.error("Unity instance TIMEOUT – 60 saniye geçti");
           reject(new Error("Unity instance timeout"));
         }
-      }, 100);
+      }, 200); // 200ms polling
     });
   }
 
@@ -191,6 +193,7 @@
       });
 
       // Unity instance'ı bekle
+      console.log("Unity instance bekleniyor...");
       const unityInstance = await waitForUnityInstance();
       console.log("Unity instance hazır:", unityInstance);
 
@@ -206,7 +209,7 @@
         console.log("Kullanıcı bilgileri eksik – Unity'ye hiçbir şey gönderilmiyor");
       }
     } catch (err) {
-      console.error("[FarcasterSDK] Error:", err);
+      console.error("[FarcasterSDK] Error:", err.message || err);
     }
 
     // Cast composer

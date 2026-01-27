@@ -182,27 +182,48 @@
 
           // Unity yüklendikten sonra context ve composer (değişmedi)
           if (window.miniapp && window.miniapp.sdk) {
-            console.log("Unity yüklendi – Farcaster context alınıyor");
-            window.miniapp.sdk.context()
-              .then(context => {
-                console.log("Farcaster Context:", context);
-                const user = context.user || {};
-                unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify({
-                 fid: 482011,
-  username: "spintoperhan",
-  displayName: "Spintop_Erhan",
-  pfpUrl: "https://i.imgur.com/example.png"
-}));
-              })
-              .catch(err => console.error("Context error:", err));
+  console.log("Unity yüklendi – Farcaster context alınıyor");
 
-            window.openCastComposer = function(customText = "") {
-              window.miniapp.sdk.actions.composeCast({
-                text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
-                embeds: [{ url: window.location.href }]
-              }).catch(err => console.error("ComposeCast error:", err));
-            };
-          }
+  window.miniapp.sdk.context()
+    .then(context => {
+      console.log("Farcaster Context ÇEKİLDİ:", context);
+
+      // Kullanıcı bilgilerini detaylı logla
+      const user = context.user || {};
+      console.log("Kullanıcı Bilgileri (SDK'dan):", {
+        fid: user.fid,
+        username: user.username,
+        displayName: user.displayName,
+        pfpUrl: user.pfp?.url || user.pfpUrl || null,
+        fullUserObject: user
+      });
+
+      // Bilgiler varsa Unity'ye gönder
+      if (user.fid > 0 && user.username) {
+        unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify({
+          fid: user.fid,
+          username: user.username,
+          displayName: user.displayName,
+          pfpUrl: user.pfp?.url || ''
+        }));
+        console.log("SendMessage BAŞARILI – gerçek kullanıcı bilgileri gönderildi");
+      } else {
+        console.log("Kullanıcı bilgileri eksik veya geçersiz – Unity'ye hiçbir şey gönderilmiyor (misafir modu)");
+      }
+    })
+    .catch(err => {
+      console.error("Farcaster Context HATASI:", err.message || err);
+      console.log("Context çekilemedi – Unity'ye bilgi gönderilmiyor (misafir modu kalır)");
+    });
+
+  // composer fonksiyonu (değişmedi)
+  window.openCastComposer = function(customText = "") {
+    window.miniapp.sdk.actions.composeCast({
+      text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
+      embeds: [{ url: window.location.href }]
+    }).catch(err => console.error("ComposeCast error:", err));
+  };
+}
         }).catch((message) => {
           alert(message);
         });

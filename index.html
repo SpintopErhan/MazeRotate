@@ -150,59 +150,73 @@
     </script>
 
     <!-- Farcaster SDK – ESM module ile (resmi doküman + Moodmap uyarlaması) -->
-    <script type="module">
-      import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk'
+   <script type="module">
+  import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk@0.2.2'
 
-      // SDK hazırlandığında çalıştır
-      (async () => {
-        try {
-          console.log("[FarcasterSDK] Initializing sdk.actions.ready()...");
-          await sdk.actions.ready({
-            disableNativeGestures: true  // Moodmap'teki gibi native gesture disable
-          });
-          console.log("[FarcasterSDK] ready() BAŞARILI");
-
-          console.log("[FarcasterSDK] Fetching context...");
-          const context = await sdk.context;
-
-          console.log("Farcaster Context ÇEKİLDİ:", context);
-
-          const user = context?.user || {};
-          console.log("Kullanıcı Bilgileri:", {
-            fid: user.fid,
-            username: user.username,
-            displayName: user.displayName,
-            pfpUrl: user.pfp?.url || user.pfpUrl || null,
-            fullUserObject: user
-          });
-
-          // Bilgiler varsa Unity'ye gönder
-          if (user.fid > 0 && user.username) {
-            if (unityInstance) {
-              unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify({
-                fid: user.fid,
-                username: user.username,
-                displayName: user.displayName,
-                pfpUrl: user.pfp?.url || ''
-              }));
-              console.log("SendMessage BAŞARILI – gerçek bilgiler gönderildi");
-            }
-          } else {
-            console.log("Kullanıcı bilgileri eksik – Unity'ye hiçbir şey gönderilmiyor (misafir modu)");
-          }
-        } catch (err) {
-          console.error("[FarcasterSDK] Initialization or context error:", err);
-          console.log("Context çekilemedi – misafir modu kalır");
+  // Global unityInstance'ı bekleyen fonksiyon
+  async function waitForUnityInstance(timeout = 30000) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const interval = setInterval(() => {
+        if (window.unityInstance) {
+          clearInterval(interval);
+          resolve(window.unityInstance);
         }
+        if (Date.now() - start > timeout) {
+          clearInterval(interval);
+          reject(new Error("Unity instance timeout"));
+        }
+      }, 100);
+    });
+  }
 
-        // Cast composer'ı tanımla
-        window.openCastComposer = function(customText = "") {
-          sdk.actions.composeCast({
-            text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
-            embeds: [{ url: window.location.href }]
-          }).catch(err => console.error("ComposeCast error:", err));
-        };
-      })();
-    </script>
+  (async () => {
+    try {
+      console.log("[FarcasterSDK] Initializing sdk.actions.ready()...");
+      await sdk.actions.ready({ disableNativeGestures: true });
+      console.log("[FarcasterSDK] ready() BAŞARILI");
+
+      console.log("[FarcasterSDK] Fetching context...");
+      const context = await sdk.context;
+
+      console.log("Farcaster Context ÇEKİLDİ:", context);
+
+      const user = context?.user || {};
+      console.log("Kullanıcı Bilgileri:", {
+        fid: user.fid,
+        username: user.username,
+        displayName: user.displayName,
+        pfpUrl: user.pfp?.url || user.pfpUrl || null,
+        fullUserObject: user
+      });
+
+      // Unity instance'ı bekle
+      const unityInstance = await waitForUnityInstance();
+      console.log("Unity instance hazır:", unityInstance);
+
+      if (user.fid > 0 && user.username) {
+        unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify({
+          fid: user.fid,
+          username: user.username,
+          displayName: user.displayName,
+          pfpUrl: user.pfp?.url || ''
+        }));
+        console.log("SendMessage BAŞARILI – gerçek bilgiler gönderildi");
+      } else {
+        console.log("Kullanıcı bilgileri eksik – Unity'ye hiçbir şey gönderilmiyor");
+      }
+    } catch (err) {
+      console.error("[FarcasterSDK] Error:", err);
+    }
+
+    // Cast composer
+    window.openCastComposer = function(customText = "") {
+      sdk.actions.composeCast({
+        text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
+        embeds: [{ url: window.location.href }]
+      }).catch(err => console.error("ComposeCast error:", err));
+    };
+  })();
+</script>
   </body>
 </html>

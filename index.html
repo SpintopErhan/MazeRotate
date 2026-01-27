@@ -13,41 +13,13 @@
 
     <style>
       html, body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        width: 100%;
-        overflow: hidden;
-        background: #000;
-        touch-action: manipulation;
+        margin: 0; padding: 0; height: 100%; width: 100%;
+        overflow: hidden; background: #000; touch-action: manipulation;
       }
-      #unity-container {
-        position: fixed;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        background: #000;
-      }
-      #unity-canvas {
-        width: 100% !important;
-        height: 100% !important;
-        display: block;
-        object-fit: contain;
-      }
-      #unity-loading-bar,
-      #unity-footer {
-        width: 100%;
-        position: absolute;
-        z-index: 10;
-        pointer-events: none;
-      }
-      #unity-warning {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 20;
-      }
+      #unity-container { position: fixed; inset: 0; width: 100%; height: 100%; background: #000; }
+      #unity-canvas { width: 100% !important; height: 100% !important; display: block; object-fit: contain; }
+      #unity-loading-bar, #unity-footer { width: 100%; position: absolute; z-index: 10; pointer-events: none; }
+      #unity-warning { position: absolute; top: 0; left: 0; right: 0; z-index: 20; }
     </style>
 
     <meta property="fc:frame" content='{
@@ -81,93 +53,47 @@
     </div>
 
     <script>
-      // Global değişkenler
-      let farcasterUser = null;
+      let farcasterUser = { fid: 0, username: "Misafir", displayName: "Misafir", pfpUrl: "" };
       let unityInstance = null;
+      let dataSent = false;
 
-      // 1. ADIM: SDK Başlatma Mantığı
+      // SDK İşlemleri
       if (window.miniapp && window.miniapp.sdk) {
         const sdk = window.miniapp.sdk;
-        
         try {
-          // Beyaz ekranı kaldırmak için hemen ready diyoruz
           sdk.actions.ready();
-          console.log("Farcaster SDK: Ready sinyali gönderildi.");
+          console.log("SDK Ready.");
 
-          // Previewer modunda context'in oturması için 750ms bekleyelim
-          setTimeout(() => {
-            console.log("Farcaster Context isteniyor...");
-            sdk.context().then(context => {
-              if (context && context.user) {
-                farcasterUser = {
-                  fid: context.user.fid,
-                  username: context.user.username,
-                  displayName: context.user.displayName,
-                  pfpUrl: context.user.pfpUrl || (context.user.pfp ? context.user.pfp.url : "")
-                };
-                console.log("🚀 Farcaster Kullanıcı Verisi Alındı:");
-                console.table(farcasterUser);
-              } else {
-                console.warn("Context alındı ama user bilgisi yok (Warpcast dışında olabilir).");
-                setGuestUser();
-              }
-              checkAndSendData();
-            }).catch(err => {
-              console.error("Farcaster Context Hatası (Unsupported APPLY genellikle preview kısıtlamasıdır):", err.message);
-              setGuestUser();
-              checkAndSendData();
-            });
-          }, 750);
+          // Context işlemini tamamen izole ediyoruz
+          sdk.context().then(context => {
+            if (context && context.user) {
+              farcasterUser = {
+                fid: context.user.fid,
+                username: context.user.username,
+                displayName: context.user.displayName,
+                pfpUrl: context.user.pfpUrl || (context.user.pfp ? context.user.pfp.url : "")
+              };
+              console.log("Kullanıcı Alındı.");
+            }
+            sendToUnity();
+          }).catch(err => {
+            console.warn("Context hatası görmezden geliniyor (Misafir modu).");
+            sendToUnity(); 
+          });
         } catch (e) {
-          console.error("SDK İşlem Hatası:", e);
-          setGuestUser();
-          checkAndSendData();
+          sendToUnity();
         }
       }
 
-      function setGuestUser() {
-        farcasterUser = {
-          fid: 0,
-          username: "Misafir",
-          displayName: "Misafir Kullanıcı",
-          pfpUrl: ""
-        };
-      }
-
-      function checkAndSendData() {
-        if (unityInstance && farcasterUser) {
-          console.log("Unity'ye aktarılıyor: ", farcasterUser.username);
-          // Obje hiyerarşide nerede olursa olsun isminden bulup mesajı iletir
+      function sendToUnity() {
+        if (unityInstance && !dataSent) {
+          console.log("Veri Unity'ye iletiliyor: ", farcasterUser.username);
           unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify(farcasterUser));
+          dataSent = true;
         }
       }
 
-      // 2. ADIM: Unity Yükleme Süreci
-      var container = document.querySelector("#unity-container");
-      var canvas = document.querySelector("#unity-canvas");
-      var loadingBar = document.querySelector("#unity-loading-bar");
-      var progressBarFull = document.querySelector("#unity-progress-bar-full");
-      var fullscreenButton = document.querySelector("#unity-fullscreen-button");
-      var warningBanner = document.querySelector("#unity-warning");
-
-      function unityShowBanner(msg, type) {
-        function updateBannerVisibility() {
-          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
-        }
-        var div = document.createElement('div');
-        div.innerHTML = msg;
-        warningBanner.appendChild(div);
-        if (type == 'error') div.style = 'background: red; padding: 10px;';
-        else {
-          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
-          setTimeout(function() {
-            warningBanner.removeChild(div);
-            updateBannerVisibility();
-          }, 5000);
-        }
-        updateBannerVisibility();
-      }
-
+      // Unity Loader
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/Builds.loader.js";
       var config = {
@@ -178,35 +104,29 @@
         companyName: "DefaultCompany",
         productName: "Maze Rotator",
         productVersion: "0.1",
-        showBanner: unityShowBanner,
+        showBanner: (msg, type) => { console.log(msg); },
       };
 
       var script = document.createElement("script");
       script.src = loaderUrl;
       script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          progressBarFull.style.width = 100 * progress + "%";
+        createUnityInstance(document.querySelector("#unity-canvas"), config, (progress) => {
+          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
         }).then((instance) => {
           unityInstance = instance;
-          loadingBar.style.display = "none";
+          document.querySelector("#unity-loading-bar").style.display = "none";
           
-          fullscreenButton.onclick = () => {
-            unityInstance.SetFullscreen(1);
-          };
+          // Unity yüklendiğinde ne olursa olsun veriyi gönder (Farcaster gelmemişse Misafir gider)
+          sendToUnity();
 
-          // Unity hazır olduğunda veriyi (veya misafir verisini) gönder
-          checkAndSendData();
-
-          window.openCastComposer = function(customText = "") {
-            if (window.miniapp && window.miniapp.sdk) {
+          window.openCastComposer = (text) => {
+            if (window.miniapp?.sdk) {
               window.miniapp.sdk.actions.composeCast({
-                text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
+                text: text || "Maze Rotator'da yeni skor! #MazeRotator",
                 embeds: [{ url: window.location.href }]
-              }).catch(err => console.error("ComposeCast error:", err));
+              });
             }
           };
-        }).catch((message) => {
-          alert(message);
         });
       };
       document.body.appendChild(script);

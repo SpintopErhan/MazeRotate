@@ -7,106 +7,99 @@
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
 
-    <!-- Güncellenmiş viewport meta tag – mobil ve Farcaster WebView için optimize -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
-    <!-- Tam ekran / responsive canvas için CSS -->
     <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        width: 100%;
-        overflow: hidden;
-        background: #000;
-        touch-action: manipulation;
-      }
-      #unity-container {
-        position: fixed;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        background: #000;
-      }
-      #unity-canvas {
-        width: 100% !important;
-        height: 100% !important;
-        display: block;
-        object-fit: contain;
-      }
-      #unity-loading-bar,
-      #unity-footer {
-        width: 100%;
-        position: absolute;
-        z-index: 10;
-        pointer-events: none;
-      }
-      #unity-warning {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 20;
-      }
-    </style>
+  html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+  
+  /* Arka planı logonun ağırlığına uygun olarak daha koyu bir gradyan yaptık */
+  #unity-container { 
+    position: fixed; inset: 0; width: 100%; height: 100%; 
+    background: radial-gradient(circle, #2a2a2a 0%, #000000 100%); 
+  }
+  
+  #unity-canvas { width: 100% !important; height: 100% !important; display: block; object-fit: contain; }
 
-    <!-- Opsiyonel: Önizleme için meta tag -->
-    <meta property="fc:frame" content='{
-      "version": "next",
-      "imageUrl": "https://maze-rotate.vercel.app/preview.png",
-      "button": {
-        "title": "Maze Rotator Oyna",
-        "action": {
-          "type": "launch_miniapp",
-          "name": "Maze Rotator",
-          "url": "https://maze-rotate.vercel.app"
-        }
-      }
-    }' />
+  /* --- KARADAGGAMES PREMIUM LOADING --- */
+  #custom-loading-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 99; transition: opacity 0.8s ease;
+  }
+
+  #custom-loading-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    /* Arka Plan: Logonun arkasında daha parlak, kenarlara doğru kararan dairesel ışık */
+    background: radial-gradient(circle at center, #3a3a3a 0%, #1a1a1a 40%, #000000 100%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 99; transition: opacity 0.8s ease;
+  }
+
+  #custom-logo {
+    width: 220px; 
+    height: auto;
+    margin-bottom: 40px;
+    /* Logoyu arka plandan ayırmak için dışa doğru hafif bir parlama (glow) */
+    filter: drop-shadow(0 0 15px rgba(255,255,255,0.15));
+  }
+
+  #custom-loader-bar {
+    width: 250px; height: 3px; /* Daha da ince, daha premium */
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px; overflow: hidden;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  }
+
+  #custom-loader-fill {
+    width: 0%; height: 100%;
+    /* Barın rengini logonun gümüş yazısıyla tam eşitledik */
+    background: linear-gradient(90deg, #666 0%, #dcdcdc 50%, #666 100%);
+    background-size: 200% 100%;
+    animation: shine 2s linear infinite;
+    transition: width 0.3s ease-out;
+  }
+
+  @keyframes shine {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  #progress-percent {
+    color: #cecece; font-size: 16px; font-weight: 300;
+    margin-top: 15px; letter-spacing: 2px;
+    font-family: 'Verdana', sans-serif;
+  }
+
+  #loading-text { color: #666; margin-top: 5px; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; }
+  /* --------------------------------------- */
+</style>
+
+    <meta property="fc:frame" content='{"version": "next","imageUrl": "https://maze-rotate.vercel.app/preview.png","button": {"title": "Maze Rotator Oyna","action": {"type": "launch_miniapp","name": "Maze Rotator","url": "https://maze-rotate.vercel.app"}}}' />
   </head>
   <body>
-    <div id="unity-container" class="unity-desktop">
+    
+    <div id="unity-container">
       <canvas id="unity-canvas" tabindex="-1"></canvas>
-      <div id="unity-loading-bar">
-        <div id="unity-logo"></div>
-        <div id="unity-progress-bar-empty">
-          <div id="unity-progress-bar-full"></div>
+      
+      <div id="custom-loading-screen">
+        <img src="TemplateData/KaradagGamesLogo.png" id="custom-logo" alt="KaradagGames"> 
+        <div id="custom-loader-bar">
+          <div id="custom-loader-fill"></div>
         </div>
+        <div id="progress-percent">0%</div>
+        <div id="loading-text">LOADING...</div>
       </div>
-      <div id="unity-warning"> </div>
-      <div id="unity-footer">
-        <div id="unity-webgl-logo"></div>
-        <div id="unity-fullscreen-button"></div>
-        <div id="unity-build-title">Maze Rotator</div>
-      </div>
+
+      <div id="unity-warning"></div>
     </div>
 
     <script>
-      // Unity loading ve createInstance kısmı (değişmedi)
       var container = document.querySelector("#unity-container");
       var canvas = document.querySelector("#unity-canvas");
-      var loadingBar = document.querySelector("#unity-loading-bar");
-      var progressBarFull = document.querySelector("#unity-progress-bar-full");
-      var fullscreenButton = document.querySelector("#unity-fullscreen-button");
-      var warningBanner = document.querySelector("#unity-warning");
-
-      function unityShowBanner(msg, type) {
-        function updateBannerVisibility() {
-          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
-        }
-        var div = document.createElement('div');
-        div.innerHTML = msg;
-        warningBanner.appendChild(div);
-        if (type == 'error') div.style = 'background: red; padding: 10px;';
-        else {
-          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
-          setTimeout(function() {
-            warningBanner.removeChild(div);
-            updateBannerVisibility();
-          }, 5000);
-        }
-        updateBannerVisibility();
-      }
+      var loadingScreen = document.querySelector("#custom-loading-screen");
+      var loadingBarFill = document.querySelector("#custom-loader-fill");
+      var percentText = document.querySelector("#progress-percent");
 
       var buildUrl = "Build";
       var loaderUrl = buildUrl + "/Builds.loader.js";
@@ -115,112 +108,80 @@
         frameworkUrl: buildUrl + "/Builds.framework.js.unityweb",
         codeUrl: buildUrl + "/Builds.wasm.unityweb",
         streamingAssetsUrl: "StreamingAssets",
-        companyName: "DefaultCompany",
+        companyName: "KaradagGames",
         productName: "Maze Rotator",
         productVersion: "0.1",
-        showBanner: unityShowBanner,
       };
-
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        container.className = "unity-mobile";
-        canvas.className = "unity-mobile";
-      } else {
-        // Desktop'ta CSS ile tam ekran
-      }
-
-      loadingBar.style.display = "block";
 
       var script = document.createElement("script");
       script.src = loaderUrl;
       script.onload = () => {
         createUnityInstance(canvas, config, (progress) => {
-          progressBarFull.style.width = 100 * progress + "%";
+          // Bar ve Yüzde Güncelleme
+          var percentValue = Math.round(progress * 100);
+          loadingBarFill.style.width = percentValue + "%";
+          percentText.innerHTML = percentValue + "%";
         }).then((unityInstance) => {
-        window.unityInstance = unityInstance;
-          loadingBar.style.display = "none";
-          fullscreenButton.onclick = () => {
-            unityInstance.SetFullscreen(1);
-          };
-
-          // Farcaster SDK ve context (ESM module ile, Moodmap mantığı)
-        }).catch((message) => {
-          alert(message);
-        });
+          window.unityInstance = unityInstance;
+          // Yükleme bitince ekranı kaldır
+          loadingScreen.style.opacity = "0";
+          setTimeout(() => { loadingScreen.style.display = "none"; }, 500);
+        }).catch((message) => { alert(message); });
       };
       document.body.appendChild(script);
     </script>
 
-    <!-- Farcaster SDK – ESM module ile (resmi doküman + Moodmap uyarlaması) -->
-   <script type="module">
-  import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk@0.2.2'
+    <script type="module">
+      import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk@0.2.2'
 
-  // unityInstance'ı bekleyen fonksiyon (timeout 60 saniyeye çıkardık)
-  async function waitForUnityInstance(timeout = 60000) {
-    return new Promise((resolve, reject) => {
-      const start = Date.now();
-      const interval = setInterval(() => {
-        if (window.unityInstance) {
-          clearInterval(interval);
-          console.log("Unity instance BULUNDU:", window.unityInstance);
-          resolve(window.unityInstance);
-        }
-        if (Date.now() - start > timeout) {
-          clearInterval(interval);
-          console.error("Unity instance TIMEOUT – 60 saniye geçti");
-          reject(new Error("Unity instance timeout"));
-        }
-      }, 200); // 200ms polling
-    });
-  }
-
-  // 1. En üste global değişkeni ekle (Unity'nin çekebilmesi için)
-window.farcasterDataString = ""; 
-
-(async () => {
-    try {
-      console.log("[FarcasterSDK] Initializing sdk.actions.ready()...");
-      await sdk.actions.ready({ disableNativeGestures: true });
-      console.log("[FarcasterSDK] ready() BAŞARILI");
-
-      console.log("[FarcasterSDK] Fetching context...");
-      const context = await sdk.context;
-      console.log("Farcaster Context ÇEKİLDİ:", context);
-
-      const user = context?.user || {};
-      
-      // 2. Veriyi JSON string haline getir ve global değişkene sakla
-      const userData = {
-        fid: user.fid,
-        username: user.username,
-        displayName: user.displayName,
-        pfpUrl: user.pfp?.url || user.pfpUrl || ""
-      };
-      window.farcasterDataString = JSON.stringify(userData);
-      console.log("[JS] Veri Unity'nin çekmesi için hazırlandı:", userData);
-
-      // Unity instance'ı bekle (Mevcut mantığın)
-      console.log("Unity instance bekleniyor...");
-      const unityInstance = await waitForUnityInstance();
-      
-      if (user.fid > 0 && user.username) {
-        // Hem gönderiyoruz hem de yukarda sakladık (Çift dikiş)
-        unityInstance.SendMessage('GameManager', 'SetFarcasterUser', window.farcasterDataString);
-        console.log("SendMessage BAŞARILI – gerçek bilgiler gönderildi");
-      } else {
-        console.log("Kullanıcı bilgileri eksik – Unity'ye hiçbir şey gönderilmiyor");
+      async function waitForUnityInstance(timeout = 60000) {
+        return new Promise((resolve, reject) => {
+          const start = Date.now();
+          const interval = setInterval(() => {
+            if (window.unityInstance) {
+              clearInterval(interval);
+              resolve(window.unityInstance);
+            }
+            if (Date.now() - start > timeout) {
+              clearInterval(interval);
+              reject(new Error("Unity instance timeout"));
+            }
+          }, 200);
+        });
       }
-    } catch (err) {
-      console.error("[FarcasterSDK] Error:", err.message || err);
-    }
 
-    // Cast composer (Değişmedi)
-    window.openCastComposer = function(customText = "") {
-      sdk.actions.composeCast({
-        text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
-        embeds: [{ url: window.location.href }]
-      }).catch(err => console.error("ComposeCast error:", err));
-    };
-})();
-</script>
+      window.farcasterDataString = ""; 
+
+      (async () => {
+        try {
+          await sdk.actions.ready({ disableNativeGestures: true });
+          const context = await sdk.context;
+          const user = context?.user || {};
+          
+          const userData = {
+            fid: user.fid,
+            username: user.username,
+            displayName: user.displayName,
+            pfpUrl: user.pfp?.url || user.pfpUrl || ""
+          };
+          window.farcasterDataString = JSON.stringify(userData);
+
+          const unityInstance = await waitForUnityInstance();
+          
+          if (user.fid > 0 && user.username) {
+            unityInstance.SendMessage('GameManager', 'SetFarcasterUser', window.farcasterDataString);
+          }
+        } catch (err) {
+          console.error("[FarcasterSDK] Error:", err);
+        }
+
+        window.openCastComposer = function(customText = "") {
+          sdk.actions.composeCast({
+            text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
+            embeds: [{ url: window.location.href }]
+          }).catch(err => console.error("ComposeCast error:", err));
+        };
+      })();
+    </script>
   </body>
 </html>

@@ -173,7 +173,10 @@
     });
   }
 
-  (async () => {
+  // 1. En üste global değişkeni ekle (Unity'nin çekebilmesi için)
+window.farcasterDataString = ""; 
+
+(async () => {
     try {
       console.log("[FarcasterSDK] Initializing sdk.actions.ready()...");
       await sdk.actions.ready({ disableNativeGestures: true });
@@ -181,30 +184,27 @@
 
       console.log("[FarcasterSDK] Fetching context...");
       const context = await sdk.context;
-
       console.log("Farcaster Context ÇEKİLDİ:", context);
 
       const user = context?.user || {};
-      console.log("Kullanıcı Bilgileri:", {
+      
+      // 2. Veriyi JSON string haline getir ve global değişkene sakla
+      const userData = {
         fid: user.fid,
         username: user.username,
         displayName: user.displayName,
-        pfpUrl: user.pfp?.url || user.pfpUrl || null,
-        fullUserObject: user
-      });
+        pfpUrl: user.pfp?.url || user.pfpUrl || ""
+      };
+      window.farcasterDataString = JSON.stringify(userData);
+      console.log("[JS] Veri Unity'nin çekmesi için hazırlandı:", userData);
 
-      // Unity instance'ı bekle
+      // Unity instance'ı bekle (Mevcut mantığın)
       console.log("Unity instance bekleniyor...");
       const unityInstance = await waitForUnityInstance();
-      console.log("Unity instance hazır:", unityInstance);
-
+      
       if (user.fid > 0 && user.username) {
-        unityInstance.SendMessage('GameManager', 'SetFarcasterUser', JSON.stringify({
-          fid: user.fid,
-          username: user.username,
-          displayName: user.displayName,
-          pfpUrl: user.pfp?.url || ''
-        }));
+        // Hem gönderiyoruz hem de yukarda sakladık (Çift dikiş)
+        unityInstance.SendMessage('GameManager', 'SetFarcasterUser', window.farcasterDataString);
         console.log("SendMessage BAŞARILI – gerçek bilgiler gönderildi");
       } else {
         console.log("Kullanıcı bilgileri eksik – Unity'ye hiçbir şey gönderilmiyor");
@@ -213,14 +213,14 @@
       console.error("[FarcasterSDK] Error:", err.message || err);
     }
 
-    // Cast composer
+    // Cast composer (Değişmedi)
     window.openCastComposer = function(customText = "") {
       sdk.actions.composeCast({
         text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
         embeds: [{ url: window.location.href }]
       }).catch(err => console.error("ComposeCast error:", err));
     };
-  })();
+})();
 </script>
   </body>
 </html>

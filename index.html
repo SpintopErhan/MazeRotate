@@ -10,70 +10,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
     <style>
-  html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
-  
-  /* Arka planı logonun ağırlığına uygun olarak daha koyu bir gradyan yaptık */
-  #unity-container { 
-    position: fixed; inset: 0; width: 100%; height: 100%; 
-    background: radial-gradient(circle, #2a2a2a 0%, #000000 100%); 
-  }
-  
-  #unity-canvas { width: 100% !important; height: 100% !important; display: block; object-fit: contain; }
+      html, body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+      
+      #unity-container { 
+        position: fixed; inset: 0; width: 100%; height: 100%; 
+        background: radial-gradient(circle, #2a2a2a 0%, #000000 100%); 
+      }
+      
+      #unity-canvas { width: 100% !important; height: 100% !important; display: block; object-fit: contain; }
 
-  /* --- KARADAGGAMES PREMIUM LOADING --- */
-  #custom-loading-screen {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    z-index: 99; transition: opacity 0.8s ease;
-  }
+      /* --- KARADAGGAMES PREMIUM LOADING --- */
+      #custom-loading-screen {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        /* Arka Plan: KaradagGames logonu öne çıkaran merkezi aydınlatma */
+        background: radial-gradient(circle at center, #3a3a3a 0%, #1a1a1a 40%, #000000 100%);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        z-index: 99; transition: opacity 0.8s ease;
+      }
 
-  #custom-loading-screen {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    /* Arka Plan: Logonun arkasında daha parlak, kenarlara doğru kararan dairesel ışık */
-    background: radial-gradient(circle at center, #3a3a3a 0%, #1a1a1a 40%, #000000 100%);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    z-index: 99; transition: opacity 0.8s ease;
-  }
+      #custom-logo {
+        width: 220px; 
+        height: auto;
+        margin-bottom: 40px;
+        filter: drop-shadow(0 0 15px rgba(255,255,255,0.15));
+      }
 
-  #custom-logo {
-    width: 220px; 
-    height: auto;
-    margin-bottom: 40px;
-    /* Logoyu arka plandan ayırmak için dışa doğru hafif bir parlama (glow) */
-    filter: drop-shadow(0 0 15px rgba(255,255,255,0.15));
-  }
+      #custom-loader-bar {
+        width: 250px; height: 3px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px; overflow: hidden;
+        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      }
 
-  #custom-loader-bar {
-    width: 250px; height: 3px; /* Daha da ince, daha premium */
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px; overflow: hidden;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-  }
+      #custom-loader-fill {
+        width: 0%; height: 100%;
+        /* Gümüş/Metalik geçiş efekti */
+        background: linear-gradient(90deg, #666 0%, #dcdcdc 50%, #666 100%);
+        background-size: 200% 100%;
+        animation: shine 2s linear infinite;
+        transition: width 0.3s ease-out;
+      }
 
-  #custom-loader-fill {
-    width: 0%; height: 100%;
-    /* Barın rengini logonun gümüş yazısıyla tam eşitledik */
-    background: linear-gradient(90deg, #666 0%, #dcdcdc 50%, #666 100%);
-    background-size: 200% 100%;
-    animation: shine 2s linear infinite;
-    transition: width 0.3s ease-out;
-  }
+      @keyframes shine {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
 
-  @keyframes shine {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
+      #progress-percent {
+        color: #cecece; font-size: 16px; font-weight: 300;
+        margin-top: 15px; letter-spacing: 2px;
+        font-family: 'Verdana', sans-serif;
+      }
 
-  #progress-percent {
-    color: #cecece; font-size: 16px; font-weight: 300;
-    margin-top: 15px; letter-spacing: 2px;
-    font-family: 'Verdana', sans-serif;
-  }
-
-  #loading-text { color: #666; margin-top: 5px; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; }
-  /* --------------------------------------- */
-</style>
+      #loading-text { color: #666; margin-top: 5px; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; }
+    </style>
 
     <meta property="fc:frame" content='{"version": "next","imageUrl": "https://maze-rotate.vercel.app/preview.png","button": {"title": "Maze Rotator Oyna","action": {"type": "launch_miniapp","name": "Maze Rotator","url": "https://maze-rotate.vercel.app"}}}' />
   </head>
@@ -117,15 +107,13 @@
       script.src = loaderUrl;
       script.onload = () => {
         createUnityInstance(canvas, config, (progress) => {
-          // Bar ve Yüzde Güncelleme
           var percentValue = Math.round(progress * 100);
           loadingBarFill.style.width = percentValue + "%";
           percentText.innerHTML = percentValue + "%";
         }).then((unityInstance) => {
           window.unityInstance = unityInstance;
-          // Yükleme bitince ekranı kaldır
           loadingScreen.style.opacity = "0";
-          setTimeout(() => { loadingScreen.style.display = "none"; }, 500);
+          setTimeout(() => { loadingScreen.style.display = "none"; }, 800);
         }).catch((message) => { alert(message); });
       };
       document.body.appendChild(script);
@@ -175,10 +163,11 @@
           console.error("[FarcasterSDK] Error:", err);
         }
 
+        // Sabit link ile Cast atma fonksiyonu
         window.openCastComposer = function(customText = "") {
           sdk.actions.composeCast({
-            text: customText || "Maze Rotator'da yeni skor! #MazeRotator",
-            embeds: [{ url: window.location.href }]
+            text: customText || "Maze Rotator'da zirveye oynuyorum! 🏔️ #MazeRotator",
+            embeds: ["https://maze-rotate.vercel.app"] 
           }).catch(err => console.error("ComposeCast error:", err));
         };
       })();
